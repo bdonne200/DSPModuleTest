@@ -55,7 +55,24 @@ public:
     void getStateInformation (MemoryBlock& destData) override;
     void setStateInformation (const void* data, int sizeInBytes) override;
 
+	void reset() override;
+
 private:
+
+	dsp::ProcessorDuplicator<dsp::IIR::Filter<float>, dsp::IIR::Coefficients<float>> LPFilter;
+	dsp::ProcessorDuplicator<dsp::IIR::Filter<float>, dsp::IIR::Coefficients<float>> HPFilter;
+	AudioBuffer<float> LPBuffer;
+	AudioBuffer<float> HPBuffer;
+
+	/*IIRFilter LPFilter[2];
+	IIRFilter HPFilter[2];
+
+	IIRCoefficients LPCoefficients;
+	IIRCoefficients HPCoefficients;
+
+	AudioSampleBuffer LPBuffer;
+	AudioSampleBuffer HPBuffer;*/
+
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DspmoduleTestAudioProcessor)
 };

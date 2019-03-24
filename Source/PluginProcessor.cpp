@@ -95,8 +95,45 @@ void DspmoduleTestAudioProcessor::changeProgramName (int index, const String& ne
 //==============================================================================
 void DspmoduleTestAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
-    // Use this method as the place to do any pre-playback
-    // initialisation that you need..
+	/*LPCoefficients = IIRCoefficients::makeLowPass(sampleRate, 5000.0);
+	//LPCoefficients = IIRCoefficients(0.0046, 0.092, 0.0046, 1.0, -1.7991, 0.8175); // Custom
+	LPFilter[0].setCoefficients(LPCoefficients);
+	LPFilter[1].setCoefficients(LPCoefficients);
+
+	HPCoefficients = IIRCoefficients::makeHighPass(sampleRate, 4000.0);
+	//HPCoefficients = IIRCoefficients(0.9042, -1.8083, 0.9042, 1.0, -1.7991, 0.8175); // Custom
+	HPFilter[0].setCoefficients(HPCoefficients);
+	HPFilter[1].setCoefficients(HPCoefficients);*/
+
+	LPBuffer.setSize(2, samplesPerBlock);
+	HPBuffer.setSize(2, samplesPerBlock);
+
+	LPBuffer.clear();
+	HPBuffer.clear();
+
+	//*LPFilter.state = *dsp::IIR::Coefficients<float>::makeLowPass(sampleRate, 2000.0f);
+	//*HPFilter.state = *dsp::IIR::Coefficients<float>::makeHighPass(sampleRate, 2000.0f);
+
+	Array<float> co;
+	for(int i = 0; i < 10; ++i)
+		co.add(i);
+
+	dsp::IIR::Coefficients<float> t;
+	t.coefficients = co;
+
+	//auto butterLowpass = dsp::FilterDesign<float>::designIIRLowpassHighOrderButterworthMethod(8000.0f, sampleRate, 4);
+	//for (auto coeff : butterLowpass) {
+		LPFilter.state = t;
+	//}
+
+	auto butterHighpass = dsp::FilterDesign<float>::designIIRHighpassHighOrderButterworthMethod(8000.0f, sampleRate, 4);
+	for (auto coeff : butterHighpass) {
+		HPFilter.state = coeff;
+	}
+
+	dsp::ProcessSpec spec{ sampleRate, static_cast<uint32> (samplesPerBlock), 2 };
+	LPFilter.prepare(spec);
+	HPFilter.prepare(spec);
 }
 
 void DspmoduleTestAudioProcessor::releaseResources()
@@ -129,35 +166,53 @@ bool DspmoduleTestAudioProcessor::isBusesLayoutSupported (const BusesLayout& lay
 }
 #endif
 
-void DspmoduleTestAudioProcessor::processBlock (AudioBuffer<float>& buffer, MidiBuffer& midiMessages)
+void DspmoduleTestAudioProcessor::processBlock(AudioBuffer<float>& buffer, MidiBuffer& midiMessages)
 {
-    ScopedNoDenormals noDenormals;
-    auto totalNumInputChannels  = getTotalNumInputChannels();
-    auto totalNumOutputChannels = getTotalNumOutputChannels();
+	ScopedNoDenormals noDenormals;
 
-    // In case we have more outputs than inputs, this code clears any output
-    // channels that didn't contain input data, (because these aren't
-    // guaranteed to be empty - they may contain garbage).
-    // This is here to avoid people getting screaming feedback
-    // when they first compile a plugin, but obviously you don't need to keep
-    // this code if your algorithm always overwrites all the output channels.
-    for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
-        buffer.clear (i, 0, buffer.getNumSamples());
+	// In case we have more outputs than inputs, this code clears any output
+	// channels that didn't contain input data
+	for (auto i = getTotalNumInputChannels(); i < getTotalNumOutputChannels(); ++i)
+		buffer.clear(i, 0, buffer.getNumSamples());
 
-    // This is the place where you'd normally do the guts of your plugin's
-    // audio processing...
-    // Make sure to reset the state if your inner loop is processing
-    // the samples and the outer loop is handling the channels.
-    // Alternatively, you can process the samples with the channels
-    // interleaved by keeping the same state.
-    for (int channel = 0; channel < totalNumInputChannels; ++channel)
-    {
-        auto* channelData = buffer.getWritePointer (channel);
+	/*LPBuffer.copyFrom(0, 0, buffer, 0, 0, buffer.getNumSamples());
+	LPBuffer.copyFrom(1, 0, buffer, 1, 0, buffer.getNumSamples());
 
-        // ..do something to the data...
-    }
+	HPBuffer.copyFrom(0, 0, buffer, 0, 0, buffer.getNumSamples());
+	HPBuffer.copyFrom(1, 0, buffer, 1, 0, buffer.getNumSamples());
+
+	for (int channel = 0; channel < getTotalNumInputChannels(); ++channel)
+	{
+		LPFilter[channel].processSamples(LPBuffer.getWritePointer(channel), LPBuffer.getNumSamples());
+		HPFilter[channel].processSamples(HPBuffer.getWritePointer(channel), HPBuffer.getNumSamples());
+	}
+
+	HPBuffer.addFrom(0, 0, LPBuffer, 0, 0, LPBuffer.getNumSamples());
+	HPBuffer.addFrom(1, 0, LPBuffer, 1, 0, LPBuffer.getNumSamples());
+
+	buffer.copyFrom(0, 0, HPBuffer, 0, 0, HPBuffer.getNumSamples());
+	buffer.copyFrom(1, 0, HPBuffer, 1, 0, HPBuffer.getNumSamples());*/
+
+	LPBuffer.copyFrom(0, 0, buffer, 0, 0, buffer.getNumSamples());
+	LPBuffer.copyFrom(1, 0, buffer, 1, 0, buffer.getNumSamples());
+
+	HPBuffer.copyFrom(0, 0, buffer, 0, 0, buffer.getNumSamples());
+	HPBuffer.copyFrom(1, 0, buffer, 1, 0, buffer.getNumSamples());
+
+	dsp::AudioBlock<float> LPBlock(LPBuffer);
+	dsp::ProcessContextReplacing<float> LPContext(LPBlock);
+	LPFilter.process(LPContext);
+
+	dsp::AudioBlock<float> HPBlock(HPBuffer);
+	dsp::ProcessContextReplacing<float> HPContext(HPBlock);
+	HPFilter.process(HPContext);
+
+	HPBuffer.addFrom(0, 0, LPBuffer, 0, 0, LPBuffer.getNumSamples());
+	HPBuffer.addFrom(1, 0, LPBuffer, 1, 0, LPBuffer.getNumSamples());
+
+	buffer.copyFrom(0, 0, HPBuffer, 0, 0, HPBuffer.getNumSamples());
+	buffer.copyFrom(1, 0, HPBuffer, 1, 0, HPBuffer.getNumSamples());
 }
-
 //==============================================================================
 bool DspmoduleTestAudioProcessor::hasEditor() const
 {
@@ -188,4 +243,16 @@ void DspmoduleTestAudioProcessor::setStateInformation (const void* data, int siz
 AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
     return new DspmoduleTestAudioProcessor();
+}
+
+void DspmoduleTestAudioProcessor::reset() 
+{
+	for (int channel = 0; channel < getTotalNumInputChannels(); ++channel)
+	{
+		//LPFilter[channel].reset();
+		//HPFilter[channel].reset();
+	}
+
+	LPFilter.reset();
+	HPFilter.reset();
 }
