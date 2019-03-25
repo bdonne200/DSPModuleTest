@@ -1,4 +1,4 @@
-<REAPER_PROJECT 0.1 "5.965/x64" 1553461422
+<REAPER_PROJECT 0.1 "5.965/x64" 1553547374
   RIPPLE 0
   GROUPOVERRIDE 0 0 0
   AUTOXFADE 1
@@ -14,8 +14,8 @@
   TIMEMODE 1 5 -1 30 0
   VIDEO_CONFIG 0 0 256
   PANMODE 3
-  CURSOR 9.5
-  ZOOM 100 40793 0
+  CURSOR 34.5
+  ZOOM 19.39854410704364 0 0
   VZOOMEX 6
   USE_REC_CFG 0
   RECMODE 1
@@ -85,7 +85,7 @@
   <PROJBAY
   >
   <TRACK {5289EC77-7B15-483A-BFDD-80377F0BFA10}
-    NAME ""
+    NAME acoustic-82bpm
     PEAKCOL 16576
     BEAT -1
     AUTOMODE 0
@@ -96,7 +96,7 @@
     BUSCOMP 0 0
     SHOWINMIX 1 0.6667 0.5 1 0.5 0 0 0
     FREEMODE 0
-    SEL 0
+    SEL 1
     REC 0 0 0 0 0 0 0
     VU 2
     TRACKHEIGHT 0 0 0
@@ -114,7 +114,7 @@
       DOCKED 0
       BYPASS 1 0 0
       <JS loser/WhiteNoise ""
-        -120.000000 -12.000000 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+        -120.000000 -25.000000 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
       >
       FLOATPOS 0 0 0 0
       FXID {7CAA0D62-5D0F-42C0-81A8-723AE4580FD9}
@@ -125,16 +125,39 @@
         PAAAAAEAAAAAAAAAAAAAAEpVQ0VQcml2YXRlRGF0YQABAUJ5cGFzcwABAQMAHQAAAAAAAABKVUNFUHJpdmF0ZURhdGEAAAAAAAAAAA==
         AAAQAAAA
       >
-      FLOATPOS 0 0 0 0
-      FXID {421E3BF8-A837-4106-A9D4-8A9EC1067E07}
+      FLOAT 1931 786 424 146
+      FXID {877E8CFD-1033-4988-A4D4-4D52003A1D47}
       WAK 0
       BYPASS 0 0 0
       <JS analysis/gfxspectrograph ""
         6.000000 2.000000 -180.000000 0.000000 0.000000 1.000000 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
       >
+      JS_DIMS 640 425
       FLOATPOS 0 0 0 0
       FXID {8C0BB697-5383-492B-859B-1C481F8E1FAB}
       WAK 0
+    >
+    <ITEM
+      POSITION 0
+      SNAPOFFS 0
+      LENGTH 8.78048958333333
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0
+      FADEOUT 1 0.01 0 1 0 0
+      MUTE 0
+      SEL 0
+      IGUID {F45E5119-2ACD-4FE3-9989-9FB66A830D99}
+      IID 1
+      NAME acoustic-82bpm.wav
+      VOLPAN 1 0 1 -1
+      SOFFS 0
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {E7F9D211-9652-49B4-A423-CB1FE0713981}
+      <SOURCE WAVE
+        FILE "C:\Users\JDMoore_Home\Downloads\acoustic-82bpm.wav"
+      >
     >
   >
 >

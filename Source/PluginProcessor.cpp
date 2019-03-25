@@ -24,6 +24,12 @@ DspmoduleTestAudioProcessor::DspmoduleTestAudioProcessor()
                        )
 #endif
 {
+	cutoffParam = new AudioParameterFloat("cutoffParam", "Cross Over Freq (Hz)", 100.f, 10000.0f, 500.f);
+	addParameter(cutoffParam);
+
+	filterTypeParam = new AudioParameterChoice("filterTypeParam", "Filter choice", { "JUCE Cascaded IIRs", "Maximilian IIR" }, 0);
+	addParameter(filterTypeParam);
+
 }
 
 DspmoduleTestAudioProcessor::~DspmoduleTestAudioProcessor()
@@ -95,15 +101,19 @@ void DspmoduleTestAudioProcessor::changeProgramName (int index, const String& ne
 //==============================================================================
 void DspmoduleTestAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
-	/*LPCoefficients = IIRCoefficients::makeLowPass(sampleRate, 5000.0);
+	LPCoefficients = IIRCoefficients::makeLowPass(sampleRate, cutoffParam->get());
 	//LPCoefficients = IIRCoefficients(0.0046, 0.092, 0.0046, 1.0, -1.7991, 0.8175); // Custom
-	LPFilter[0].setCoefficients(LPCoefficients);
-	LPFilter[1].setCoefficients(LPCoefficients);
+	LPFilter1[0].setCoefficients(LPCoefficients);
+	LPFilter2[0].setCoefficients(LPCoefficients);
+	LPFilter1[1].setCoefficients(LPCoefficients);
+	LPFilter2[1].setCoefficients(LPCoefficients);
 
-	HPCoefficients = IIRCoefficients::makeHighPass(sampleRate, 4000.0);
+	HPCoefficients = IIRCoefficients::makeHighPass(sampleRate, cutoffParam->get());
 	//HPCoefficients = IIRCoefficients(0.9042, -1.8083, 0.9042, 1.0, -1.7991, 0.8175); // Custom
-	HPFilter[0].setCoefficients(HPCoefficients);
-	HPFilter[1].setCoefficients(HPCoefficients);*/
+	HPFilter1[0].setCoefficients(HPCoefficients);
+	HPFilter2[1].setCoefficients(HPCoefficients);
+	HPFilter1[0].setCoefficients(HPCoefficients);
+	HPFilter2[1].setCoefficients(HPCoefficients);
 
 	LPBuffer.setSize(2, samplesPerBlock);
 	HPBuffer.setSize(2, samplesPerBlock);
@@ -111,29 +121,8 @@ void DspmoduleTestAudioProcessor::prepareToPlay (double sampleRate, int samplesP
 	LPBuffer.clear();
 	HPBuffer.clear();
 
-	//*LPFilter.state = *dsp::IIR::Coefficients<float>::makeLowPass(sampleRate, 2000.0f);
-	//*HPFilter.state = *dsp::IIR::Coefficients<float>::makeHighPass(sampleRate, 2000.0f);
+	maxiSettings::setup(sampleRate, getNumInputChannels(), samplesPerBlock);
 
-	Array<float> co;
-	for(int i = 0; i < 10; ++i)
-		co.add(i);
-
-	dsp::IIR::Coefficients<float> t;
-	t.coefficients = co;
-
-	//auto butterLowpass = dsp::FilterDesign<float>::designIIRLowpassHighOrderButterworthMethod(8000.0f, sampleRate, 4);
-	//for (auto coeff : butterLowpass) {
-		LPFilter.state = t;
-	//}
-
-	auto butterHighpass = dsp::FilterDesign<float>::designIIRHighpassHighOrderButterworthMethod(8000.0f, sampleRate, 4);
-	for (auto coeff : butterHighpass) {
-		HPFilter.state = coeff;
-	}
-
-	dsp::ProcessSpec spec{ sampleRate, static_cast<uint32> (samplesPerBlock), 2 };
-	LPFilter.prepare(spec);
-	HPFilter.prepare(spec);
 }
 
 void DspmoduleTestAudioProcessor::releaseResources()
@@ -175,43 +164,42 @@ void DspmoduleTestAudioProcessor::processBlock(AudioBuffer<float>& buffer, MidiB
 	for (auto i = getTotalNumInputChannels(); i < getTotalNumOutputChannels(); ++i)
 		buffer.clear(i, 0, buffer.getNumSamples());
 
-	/*LPBuffer.copyFrom(0, 0, buffer, 0, 0, buffer.getNumSamples());
-	LPBuffer.copyFrom(1, 0, buffer, 1, 0, buffer.getNumSamples());
-
-	HPBuffer.copyFrom(0, 0, buffer, 0, 0, buffer.getNumSamples());
-	HPBuffer.copyFrom(1, 0, buffer, 1, 0, buffer.getNumSamples());
-
-	for (int channel = 0; channel < getTotalNumInputChannels(); ++channel)
-	{
-		LPFilter[channel].processSamples(LPBuffer.getWritePointer(channel), LPBuffer.getNumSamples());
-		HPFilter[channel].processSamples(HPBuffer.getWritePointer(channel), HPBuffer.getNumSamples());
-	}
-
-	HPBuffer.addFrom(0, 0, LPBuffer, 0, 0, LPBuffer.getNumSamples());
-	HPBuffer.addFrom(1, 0, LPBuffer, 1, 0, LPBuffer.getNumSamples());
-
-	buffer.copyFrom(0, 0, HPBuffer, 0, 0, HPBuffer.getNumSamples());
-	buffer.copyFrom(1, 0, HPBuffer, 1, 0, HPBuffer.getNumSamples());*/
-
+	// Copy input data to temp buffers for processing by filters (for left and right channels)
 	LPBuffer.copyFrom(0, 0, buffer, 0, 0, buffer.getNumSamples());
 	LPBuffer.copyFrom(1, 0, buffer, 1, 0, buffer.getNumSamples());
-
 	HPBuffer.copyFrom(0, 0, buffer, 0, 0, buffer.getNumSamples());
 	HPBuffer.copyFrom(1, 0, buffer, 1, 0, buffer.getNumSamples());
 
-	dsp::AudioBlock<float> LPBlock(LPBuffer);
-	dsp::ProcessContextReplacing<float> LPContext(LPBlock);
-	LPFilter.process(LPContext);
+	if (filterTypeParam->getIndex() == 0) {
 
-	dsp::AudioBlock<float> HPBlock(HPBuffer);
-	dsp::ProcessContextReplacing<float> HPContext(HPBlock);
-	HPFilter.process(HPContext);
+		for (int channel = 0; channel < getTotalNumInputChannels(); ++channel)
+		{
+			LPFilter1[channel].processSamples(LPBuffer.getWritePointer(channel), LPBuffer.getNumSamples());
+			LPFilter2[channel].processSamples(LPBuffer.getWritePointer(channel), LPBuffer.getNumSamples());
+			HPFilter1[channel].processSamples(HPBuffer.getWritePointer(channel), HPBuffer.getNumSamples());
+			HPFilter2[channel].processSamples(HPBuffer.getWritePointer(channel), HPBuffer.getNumSamples());
+		}
 
-	HPBuffer.addFrom(0, 0, LPBuffer, 0, 0, LPBuffer.getNumSamples());
-	HPBuffer.addFrom(1, 0, LPBuffer, 1, 0, LPBuffer.getNumSamples());
+		HPBuffer.applyGain(-1.0f);
 
+	}
+	else {
+
+		for (int channel = 0; channel < getTotalNumInputChannels(); ++channel)
+		{
+			maxiLP[channel].lopass(*LPBuffer.getWritePointer(channel), cutoffParam->get());
+			maxiHP[channel].hipass(*HPBuffer.getWritePointer(channel), cutoffParam->get());
+			LPBuffer.applyGain(0.707f);
+			HPBuffer.applyGain(0.707f);
+		}
+	}
+
+	// Copy data in buffers back to output buffer
+	HPBuffer.addFrom(0, 0, LPBuffer, 0, 0, LPBuffer.getNumSamples()); // Mix LP and HP for left channel
+	HPBuffer.addFrom(1, 0, LPBuffer, 1, 0, LPBuffer.getNumSamples()); 
 	buffer.copyFrom(0, 0, HPBuffer, 0, 0, HPBuffer.getNumSamples());
 	buffer.copyFrom(1, 0, HPBuffer, 1, 0, HPBuffer.getNumSamples());
+	
 }
 //==============================================================================
 bool DspmoduleTestAudioProcessor::hasEditor() const
@@ -221,7 +209,7 @@ bool DspmoduleTestAudioProcessor::hasEditor() const
 
 AudioProcessorEditor* DspmoduleTestAudioProcessor::createEditor()
 {
-    return new DspmoduleTestAudioProcessorEditor (*this);
+    return new GenericAudioProcessorEditor (this);
 }
 
 //==============================================================================
@@ -249,10 +237,10 @@ void DspmoduleTestAudioProcessor::reset()
 {
 	for (int channel = 0; channel < getTotalNumInputChannels(); ++channel)
 	{
-		//LPFilter[channel].reset();
-		//HPFilter[channel].reset();
+		LPFilter1[channel].reset();
+		HPFilter1[channel].reset();
+		LPFilter2[channel].reset();
+		HPFilter2[channel].reset();
 	}
 
-	LPFilter.reset();
-	HPFilter.reset();
 }

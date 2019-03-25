@@ -10,8 +10,9 @@
 
 #pragma once
 
-#include "../JuceLibraryCode/JuceHeader.h"
 
+#include "../JuceLibraryCode/JuceHeader.h"
+#include "../../Maximilian/maximilian.h"
 //==============================================================================
 /**
 */
@@ -59,19 +60,21 @@ public:
 
 private:
 
-	dsp::ProcessorDuplicator<dsp::IIR::Filter<float>, dsp::IIR::Coefficients<float>> LPFilter;
-	dsp::ProcessorDuplicator<dsp::IIR::Filter<float>, dsp::IIR::Coefficients<float>> HPFilter;
-	AudioBuffer<float> LPBuffer;
-	AudioBuffer<float> HPBuffer;
-
-	/*IIRFilter LPFilter[2];
-	IIRFilter HPFilter[2];
+	AudioParameterFloat* cutoffParam;
+	AudioParameterChoice* filterTypeParam;
+	IIRFilter LPFilter1[2];
+	IIRFilter LPFilter2[2];
+	IIRFilter HPFilter1[2];
+	IIRFilter HPFilter2[2];
 
 	IIRCoefficients LPCoefficients;
 	IIRCoefficients HPCoefficients;
 
 	AudioSampleBuffer LPBuffer;
-	AudioSampleBuffer HPBuffer;*/
+	AudioSampleBuffer HPBuffer;
+
+	maxiFilter maxiLP[2];
+	maxiFilter maxiHP[2];
 
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DspmoduleTestAudioProcessor)

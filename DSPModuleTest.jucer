@@ -4,6 +4,10 @@
               pluginFormats="buildStandalone,buildVST3">
   <MAINGROUP id="ZpXrtk" name="DSPModuleTest">
     <GROUP id="{2E7F4632-1F97-F258-EAA6-AA0101BC3096}" name="Source">
+      <GROUP id="{850CA7DC-834F-09EE-9246-88B6176631E1}" name="Maximilian">
+        <FILE id="N0GODp" name="maximilian.cpp" compile="1" resource="0" file="../Maximilian/maximilian.cpp"/>
+        <FILE id="vZHe9M" name="maximilian.h" compile="0" resource="0" file="../Maximilian/maximilian.h"/>
+      </GROUP>
       <FILE id="qh14yw" name="PluginProcessor.cpp" compile="1" resource="0"
             file="Source/PluginProcessor.cpp"/>
       <FILE id="M6gTLZ" name="PluginProcessor.h" compile="0" resource="0"
