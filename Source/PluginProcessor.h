@@ -60,19 +60,27 @@ public:
 
 private:
 
+    // Two parameters
 	AudioParameterFloat* cutoffParam;
 	AudioParameterChoice* filterTypeParam;
+    
+    // One JUCE IIR filter per channel per frequency band
+    // we will cascade two low pass in series and two high pass in processBlock() to create
+    // a Linkwitz-Riley filter which is ideal for creating crossover filters for multiband audio applications
 	IIRFilter LPFilter1[2];
 	IIRFilter LPFilter2[2];
 	IIRFilter HPFilter1[2];
 	IIRFilter HPFilter2[2];
 
+    // Coefficients to be used with the JUCE IIR Filters
 	IIRCoefficients LPCoefficients;
 	IIRCoefficients HPCoefficients;
 
+    // Buffers to copy input data to for processing
 	AudioSampleBuffer LPBuffer;
 	AudioSampleBuffer HPBuffer;
 
+    // Maximilian filters (we need one per channel for our stereo plugin)
 	maxiFilter maxiLP[2];
 	maxiFilter maxiHP[2];
 

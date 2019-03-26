@@ -24,10 +24,11 @@ DspmoduleTestAudioProcessor::DspmoduleTestAudioProcessor()
                        )
 #endif
 {
+    // Setup the two parameters
 	cutoffParam = new AudioParameterFloat("cutoffParam", "Cross Over Freq (Hz)", 100.f, 10000.0f, 500.f);
 	addParameter(cutoffParam);
 
-	filterTypeParam = new AudioParameterChoice("filterTypeParam", "Filter choice", { "JUCE Cascaded IIRs", "Maximilian IIR" }, 0);
+    filterTypeParam = new AudioParameterChoice("filterTypeParam", "Filter choice", { "Bypass Filters", "JUCE Cascaded IIRs", "Maximilian IIR" }, 0);
 	addParameter(filterTypeParam);
 
 }
@@ -101,26 +102,29 @@ void DspmoduleTestAudioProcessor::changeProgramName (int index, const String& ne
 //==============================================================================
 void DspmoduleTestAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
-	LPCoefficients = IIRCoefficients::makeLowPass(sampleRate, cutoffParam->get());
-	//LPCoefficients = IIRCoefficients(0.0046, 0.092, 0.0046, 1.0, -1.7991, 0.8175); // Custom
+	LPCoefficients = IIRCoefficients::makeLowPass(sampleRate, cutoffParam->get()); // Call makeLowPass to generate a set of coefficients for the IIR filter
+	//LPCoefficients = IIRCoefficients(0.0046, 0.092, 0.0046, 1.0, -1.7991, 0.8175); // Or you can enter your own coefficients
 	LPFilter1[0].setCoefficients(LPCoefficients);
 	LPFilter2[0].setCoefficients(LPCoefficients);
 	LPFilter1[1].setCoefficients(LPCoefficients);
 	LPFilter2[1].setCoefficients(LPCoefficients);
 
-	HPCoefficients = IIRCoefficients::makeHighPass(sampleRate, cutoffParam->get());
-	//HPCoefficients = IIRCoefficients(0.9042, -1.8083, 0.9042, 1.0, -1.7991, 0.8175); // Custom
+	HPCoefficients = IIRCoefficients::makeHighPass(sampleRate, cutoffParam->get()); // Call makeHighPass to generate a set of coefficients for the IIR filter
+	//HPCoefficients = IIRCoefficients(0.9042, -1.8083, 0.9042, 1.0, -1.7991, 0.8175); //  Or you can enter your own coefficients
 	HPFilter1[0].setCoefficients(HPCoefficients);
 	HPFilter2[1].setCoefficients(HPCoefficients);
 	HPFilter1[0].setCoefficients(HPCoefficients);
 	HPFilter2[1].setCoefficients(HPCoefficients);
 
+    // Set size of temporary buffers
 	LPBuffer.setSize(2, samplesPerBlock);
 	HPBuffer.setSize(2, samplesPerBlock);
 
+    // Clear buffers
 	LPBuffer.clear();
 	HPBuffer.clear();
 
+    // Setup maximilian
 	maxiSettings::setup(sampleRate, getNumInputChannels(), samplesPerBlock);
 
 }
@@ -164,42 +168,52 @@ void DspmoduleTestAudioProcessor::processBlock(AudioBuffer<float>& buffer, MidiB
 	for (auto i = getTotalNumInputChannels(); i < getTotalNumOutputChannels(); ++i)
 		buffer.clear(i, 0, buffer.getNumSamples());
 
-	// Copy input data to temp buffers for processing by filters (for left and right channels)
-	LPBuffer.copyFrom(0, 0, buffer, 0, 0, buffer.getNumSamples());
-	LPBuffer.copyFrom(1, 0, buffer, 1, 0, buffer.getNumSamples());
-	HPBuffer.copyFrom(0, 0, buffer, 0, 0, buffer.getNumSamples());
-	HPBuffer.copyFrom(1, 0, buffer, 1, 0, buffer.getNumSamples());
-
-	if (filterTypeParam->getIndex() == 0) {
+	if (filterTypeParam->getIndex() == 1) { // Using the JUCE DSP module filters
 
 		for (int channel = 0; channel < getTotalNumInputChannels(); ++channel)
 		{
+            // Copy samples into temp low pass and high pass buffers ready for filtering
+            LPBuffer.copyFrom(channel, 0, buffer, channel, 0, buffer.getNumSamples());
+            HPBuffer.copyFrom(channel, 0, buffer, channel, 0, buffer.getNumSamples());
+            
+            // Apply filter to samples in temp buffers (2 x butter low pass filter is equivelent to Linkwitz-Riley Filter
+            // which are ideal for crossover filters due to their flat passband
+            // https://www.rane.com/note160.html
 			LPFilter1[channel].processSamples(LPBuffer.getWritePointer(channel), LPBuffer.getNumSamples());
 			LPFilter2[channel].processSamples(LPBuffer.getWritePointer(channel), LPBuffer.getNumSamples());
 			HPFilter1[channel].processSamples(HPBuffer.getWritePointer(channel), HPBuffer.getNumSamples());
 			HPFilter2[channel].processSamples(HPBuffer.getWritePointer(channel), HPBuffer.getNumSamples());
+            
+            // Multipy high pass by –1 so that the branches of your crossover pair are in-phase
+            HPBuffer.applyGain(channel, 0, HPBuffer.getNumSamples(), -1.0f);
+            
+            HPBuffer.addFrom(channel, 0, LPBuffer, channel, 0, LPBuffer.getNumSamples()); // Mix low pass and high pass samples together
+            buffer.copyFrom(channel, 0, HPBuffer, channel, 0, HPBuffer.getNumSamples()); // Copy mixed samples to output buffer
 		}
 
-		HPBuffer.applyGain(-1.0f);
-
 	}
-	else {
+	else if (filterTypeParam->getIndex() == 2){
 
-		for (int channel = 0; channel < getTotalNumInputChannels(); ++channel)
-		{
-			maxiLP[channel].lopass(*LPBuffer.getWritePointer(channel), cutoffParam->get());
-			maxiHP[channel].hipass(*HPBuffer.getWritePointer(channel), cutoffParam->get());
-			LPBuffer.applyGain(0.707f);
-			HPBuffer.applyGain(0.707f);
-		}
+        // Maxmilian expects the cutoff as a normalised frequency (between 0-1) so divide user selected cutoff by max of slider range
+        auto cutoff = cutoffParam->get() / 10000.0f;
+
+        for (int channel = 0; channel < getTotalNumInputChannels(); ++channel)
+        {
+            auto channelData = buffer.getWritePointer(channel);
+            
+            for(int i = 0; i < buffer.getNumSamples(); ++i){
+                
+                auto in = channelData[i];
+                
+                // Apply filters to input signal
+                auto lowSample = maxiLP[channel].lopass(in, cutoff);
+                auto HighSample = maxiHP[channel].hipass(in, cutoff);
+                
+                // Write their combination to output buffer
+                channelData[channel] = lowSample + HighSample;
+            }
+        }
 	}
-
-	// Copy data in buffers back to output buffer
-	HPBuffer.addFrom(0, 0, LPBuffer, 0, 0, LPBuffer.getNumSamples()); // Mix LP and HP for left channel
-	HPBuffer.addFrom(1, 0, LPBuffer, 1, 0, LPBuffer.getNumSamples()); 
-	buffer.copyFrom(0, 0, HPBuffer, 0, 0, HPBuffer.getNumSamples());
-	buffer.copyFrom(1, 0, HPBuffer, 1, 0, HPBuffer.getNumSamples());
-	
 }
 //==============================================================================
 bool DspmoduleTestAudioProcessor::hasEditor() const
