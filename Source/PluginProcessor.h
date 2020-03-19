@@ -12,7 +12,7 @@
 
 
 #include "../JuceLibraryCode/JuceHeader.h"
-#include "../../Maximilian/maximilian.h"
+
 //==============================================================================
 /**
 */
@@ -62,7 +62,6 @@ private:
 
     // Two parameters
 	AudioParameterFloat* cutoffParam;
-	AudioParameterChoice* filterTypeParam;
     
     // One JUCE IIR filter per channel per frequency band
     // we will cascade two low pass in series and two high pass in processBlock() to create
@@ -79,10 +78,6 @@ private:
     // Buffers to copy input data to for processing
 	AudioSampleBuffer LPBuffer;
 	AudioSampleBuffer HPBuffer;
-
-    // Maximilian filters (we need one per channel for our stereo plugin)
-	maxiFilter maxiLP[2];
-	maxiFilter maxiHP[2];
 
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DspmoduleTestAudioProcessor)

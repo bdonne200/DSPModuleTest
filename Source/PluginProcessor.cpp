@@ -28,9 +28,6 @@ DspmoduleTestAudioProcessor::DspmoduleTestAudioProcessor()
 	cutoffParam = new AudioParameterFloat("cutoffParam", "Cross Over Freq (Hz)", 100.f, 10000.0f, 500.f);
 	addParameter(cutoffParam);
 
-    filterTypeParam = new AudioParameterChoice("filterTypeParam", "Filter choice", { "Bypass Filters", "JUCE Cascaded IIRs", "Maximilian IIR" }, 0);
-	addParameter(filterTypeParam);
-
 }
 
 DspmoduleTestAudioProcessor::~DspmoduleTestAudioProcessor()
@@ -124,9 +121,6 @@ void DspmoduleTestAudioProcessor::prepareToPlay (double sampleRate, int samplesP
 	LPBuffer.clear();
 	HPBuffer.clear();
 
-    // Setup maximilian
-	maxiSettings::setup(sampleRate, getNumInputChannels(), samplesPerBlock);
-
 }
 
 void DspmoduleTestAudioProcessor::releaseResources()
@@ -168,51 +162,27 @@ void DspmoduleTestAudioProcessor::processBlock(AudioBuffer<float>& buffer, MidiB
 	for (auto i = getTotalNumInputChannels(); i < getTotalNumOutputChannels(); ++i)
 		buffer.clear(i, 0, buffer.getNumSamples());
 
-	if (filterTypeParam->getIndex() == 1) { // Using the JUCE DSP module filters
-
-		for (int channel = 0; channel < getTotalNumInputChannels(); ++channel)
-		{
-            // Copy samples into temp low pass and high pass buffers ready for filtering
-            LPBuffer.copyFrom(channel, 0, buffer, channel, 0, buffer.getNumSamples());
-            HPBuffer.copyFrom(channel, 0, buffer, channel, 0, buffer.getNumSamples());
+	for (int channel = 0; channel < getTotalNumInputChannels(); ++channel)
+	{
+        // Copy samples into temp low pass and high pass buffers ready for filtering
+        LPBuffer.copyFrom(channel, 0, buffer, channel, 0, buffer.getNumSamples());
+        HPBuffer.copyFrom(channel, 0, buffer, channel, 0, buffer.getNumSamples());
             
-            // Apply filter to samples in temp buffers (2 x butter low pass filter is equivelent to Linkwitz-Riley Filter
-            // which are ideal for crossover filters due to their flat passband
-            // https://www.rane.com/note160.html
-			LPFilter1[channel].processSamples(LPBuffer.getWritePointer(channel), LPBuffer.getNumSamples());
-			LPFilter2[channel].processSamples(LPBuffer.getWritePointer(channel), LPBuffer.getNumSamples());
-			HPFilter1[channel].processSamples(HPBuffer.getWritePointer(channel), HPBuffer.getNumSamples());
-			HPFilter2[channel].processSamples(HPBuffer.getWritePointer(channel), HPBuffer.getNumSamples());
+        // Apply filter to samples in temp buffers (2 x butter low pass filter is equivelent to Linkwitz-Riley Filter
+        // which are ideal for crossover filters due to their flat passband
+        // https://www.rane.com/note160.html
+		LPFilter1[channel].processSamples(LPBuffer.getWritePointer(channel), LPBuffer.getNumSamples());
+		LPFilter2[channel].processSamples(LPBuffer.getWritePointer(channel), LPBuffer.getNumSamples());
+		HPFilter1[channel].processSamples(HPBuffer.getWritePointer(channel), HPBuffer.getNumSamples());
+		HPFilter2[channel].processSamples(HPBuffer.getWritePointer(channel), HPBuffer.getNumSamples());
             
-            // Multipy high pass by –1 so that the branches of your crossover pair are in-phase
-            HPBuffer.applyGain(channel, 0, HPBuffer.getNumSamples(), -1.0f);
-            
-            HPBuffer.addFrom(channel, 0, LPBuffer, channel, 0, LPBuffer.getNumSamples()); // Mix low pass and high pass samples together
-            buffer.copyFrom(channel, 0, HPBuffer, channel, 0, HPBuffer.getNumSamples()); // Copy mixed samples to output buffer
-		}
+		// Here could be were you would put your processing code for each band
 
-	}
-	else if (filterTypeParam->getIndex() == 2){
+        // Multipy high pass by –1 so that the branches of your crossover pair are in-phase
+        HPBuffer.applyGain(channel, 0, HPBuffer.getNumSamples(), -1.0f);
 
-        // Maxmilian expects the cutoff as a normalised frequency (between 0-1) so divide user selected cutoff by max of slider range
-        auto cutoff = cutoffParam->get() / 10000.0f;
-
-        for (int channel = 0; channel < getTotalNumInputChannels(); ++channel)
-        {
-            auto channelData = buffer.getWritePointer(channel);
-            
-            for(int i = 0; i < buffer.getNumSamples(); ++i){
-                
-                auto in = channelData[i];
-                
-                // Apply filters to input signal
-                auto lowSample = maxiLP[channel].lopass(in, cutoff);
-                auto HighSample = maxiHP[channel].hipass(in, cutoff);
-                
-                // Write their combination to output buffer
-                channelData[channel] = lowSample + HighSample;
-            }
-        }
+        HPBuffer.addFrom(channel, 0, LPBuffer, channel, 0, LPBuffer.getNumSamples()); // Mix low pass and high pass samples together
+        buffer.copyFrom(channel, 0, HPBuffer, channel, 0, HPBuffer.getNumSamples()); // Copy mixed samples to output buffer
 	}
 }
 //==============================================================================
