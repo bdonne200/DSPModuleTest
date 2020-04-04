@@ -193,7 +193,7 @@ bool DspmoduleTestAudioProcessor::hasEditor() const
 
 AudioProcessorEditor* DspmoduleTestAudioProcessor::createEditor()
 {
-    return new GenericAudioProcessorEditor (this);
+    return new GenericAudioProcessorEditor (*this);
 }
 
 //==============================================================================
